@@ -35,10 +35,13 @@ ATracerCharacter::ATracerCharacter()
 	//Mesh1P->SetRelativeRotation(FRotator(0.9f, -19.19f, 5.2f));
 	Mesh1P->SetRelativeLocation(FVector(-30.f, 0.f, -150.f));
 
-	LaunchVector = {3000.f, 3000.f, 0.f};
+	LaunchVector = {5000.f, 5000.f, 0.f};
 
 	CooldownFirstAbilitie = 1.f;
 	CooldownRemainingFirstAbilitie = 0.f;
+
+	ImpulsesRemaining = MaxImpulses = 3;
+	ImpulseReloadTimeRemaining = ImpulseReloadTime = 2.f;
 }
 
 void ATracerCharacter::BeginPlay()
@@ -63,6 +66,17 @@ void ATracerCharacter::Tick(float DeltaTime)
 	
 	if (CooldownRemainingFirstAbilitie > 0)
 		CooldownRemainingFirstAbilitie -= DeltaTime;
+
+	if (ImpulseReloadTimeRemaining > 0 && ImpulsesRemaining < MaxImpulses)
+	{
+		ImpulseReloadTimeRemaining -= DeltaTime;
+		if (ImpulseReloadTimeRemaining <= 0)
+		{
+			ImpulseReloadTimeRemaining = ImpulseReloadTime;
+			ImpulsesRemaining++;
+			AddDash();
+		}
+	}
 }
 
 //////////////////////////////////////////////////////////////////////////// Input
@@ -126,8 +140,11 @@ bool ATracerCharacter::GetHasRifle()
 
 void ATracerCharacter::FirstAbilitie()
 {
-	if (CooldownRemainingFirstAbilitie <= 0)
+	if (CooldownRemainingFirstAbilitie <= 0 && ImpulsesRemaining >= 1)
 	{
+		DiscountDash();
+		ImpulsesRemaining--;
+		ImpulseReloadTimeRemaining = ImpulseReloadTime;
 		CooldownRemainingFirstAbilitie = CooldownFirstAbilitie;
 		LaunchCharacter(LaunchVector * FirstPersonCameraComponent->GetForwardVector(), true, true);
 	}

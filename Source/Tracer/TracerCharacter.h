@@ -87,13 +87,21 @@ public:
 	/** Returns FirstPersonCameraComponent subobject **/
 	UCameraComponent* GetFirstPersonCameraComponent() const { return FirstPersonCameraComponent; }
 
+protected:
+	UFUNCTION(BlueprintImplementableEvent)
+	void AddDash();
+
+	UFUNCTION(BlueprintImplementableEvent)
+	void DiscountDash();
 private:
 
-	float ImpulseReload;
-	float RechargeImpulse;
-	float IpulsesRemaining;
+	float ImpulseReloadTime;
+	float ImpulseReloadTimeRemaining;
 	float CooldownFirstAbilitie;
 	float CooldownRemainingFirstAbilitie;
+
+	int16 ImpulsesRemaining;
+	int16 MaxImpulses;
 
 	FVector LaunchVector;
 
