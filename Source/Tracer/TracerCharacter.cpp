@@ -5,6 +5,7 @@
 #include "Animation/AnimInstance.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 
@@ -13,6 +14,7 @@
 // ATracerCharacter
 
 ATracerCharacter::ATracerCharacter()
+	:DashActivated(false)
 {
 	// Character doesnt have a rifle at start
 	bHasRifle = false;
@@ -35,13 +37,17 @@ ATracerCharacter::ATracerCharacter()
 	//Mesh1P->SetRelativeRotation(FRotator(0.9f, -19.19f, 5.2f));
 	Mesh1P->SetRelativeLocation(FVector(-30.f, 0.f, -150.f));
 
-	LaunchVector = {5000.f, 5000.f, 0.f};
+	LaunchVector = {3000.f, 3000.f, 0.f};
 
 	CooldownFirstAbilitie = 1.f;
 	CooldownRemainingFirstAbilitie = 0.f;
 
 	ImpulsesRemaining = MaxImpulses = 3;
 	ImpulseReloadTimeRemaining = ImpulseReloadTime = 2.f;
+
+	CurrentDashTime = DashTime = 0.3f;
+
+	CharacterMovement = GetCharacterMovement();
 }
 
 void ATracerCharacter::BeginPlay()
@@ -75,6 +81,20 @@ void ATracerCharacter::Tick(float DeltaTime)
 			ImpulseReloadTimeRemaining = ImpulseReloadTime;
 			ImpulsesRemaining++;
 			AddDash();
+		}
+	}
+	
+	if (DashActivated)
+	{
+		if (CurrentDashTime > 0)
+			CurrentDashTime -= DeltaTime;
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Movement stop"));
+			DashActivated = false;
+			CharacterMovement->GravityScale = 1.0f;
+			CharacterMovement->StopActiveMovement();
+			LaunchCharacter({ 0.f, 0.f, -100.f }, true, true);
 		}
 	}
 }
@@ -146,6 +166,9 @@ void ATracerCharacter::FirstAbilitie()
 		ImpulsesRemaining--;
 		ImpulseReloadTimeRemaining = ImpulseReloadTime;
 		CooldownRemainingFirstAbilitie = CooldownFirstAbilitie;
+		GetCharacterMovement()->GravityScale = 0.f;
 		LaunchCharacter(LaunchVector * FirstPersonCameraComponent->GetForwardVector(), true, true);
+		CurrentDashTime = DashTime;
+		DashActivated = true;
 	}
 }

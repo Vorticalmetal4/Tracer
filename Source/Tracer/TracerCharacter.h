@@ -7,6 +7,7 @@
 #include "InputActionValue.h"
 #include "TracerCharacter.generated.h"
 
+class UCharacterMovementComponent;
 class UInputComponent;
 class USkeletalMeshComponent;
 class USceneComponent;
@@ -99,11 +100,17 @@ private:
 	float ImpulseReloadTimeRemaining;
 	float CooldownFirstAbilitie;
 	float CooldownRemainingFirstAbilitie;
+	float DashTime;
+	float CurrentDashTime;
+
+	bool DashActivated;
 
 	int16 ImpulsesRemaining;
 	int16 MaxImpulses;
 
 	FVector LaunchVector;
+
+	UCharacterMovementComponent* CharacterMovement;
 
 	void FirstAbilitie();
 };
