@@ -15,6 +15,14 @@ class UCameraComponent;
 class UAnimMontage;
 class USoundBase;
 
+struct RetrocessData
+{
+	FVector2D Movement;
+	FVector2D Rotation;
+	float Health;
+	int Ammo;
+};
+
 UCLASS(config=Game)
 class ATracerCharacter : public ACharacter
 {
@@ -41,7 +49,10 @@ class ATracerCharacter : public ACharacter
 	class UInputAction* MoveAction;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
-	class UInputAction* FirstAbilitieAction;
+	class UInputAction* FirstAbilityAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+	class UInputAction* SecondAbilityAction;
 
 	
 public:
@@ -89,6 +100,12 @@ public:
 	UCameraComponent* GetFirstPersonCameraComponent() const { return FirstPersonCameraComponent; }
 
 protected:
+	UPROPERTY(BlueprintReadOnly)
+	int Ammo;
+
+	UPROPERTY(BlueprintReadOnly)
+	float Health;
+
 	UFUNCTION(BlueprintImplementableEvent)
 	void AddDash();
 
@@ -103,15 +120,31 @@ private:
 	float DashTime;
 	float CurrentDashTime;
 
+	float TimeRegisterData;
+	float TimeTillRegisterData;
+
 	bool DashActivated;
+	bool HasMove;
+	bool HasRotate;
+	bool CanMove;
 
 	int16 ImpulsesRemaining;
 	int16 MaxImpulses;
+	int16 RetrocessPointsNumber;
+	int16 RetrocessIterator;
 
 	FVector LaunchVector;
+	FVector2D AuxMovement;
+	FVector2D AuxRotation;
 
 	UCharacterMovementComponent* CharacterMovement;
 
-	void FirstAbilitie();
+	RetrocessData RetrocessPoints[240];
+
+	void FirstAbility();
+	void SecondAbility();
+	void UpdateRetrocessData();
+
+	void Retrocess();
 };
 

@@ -9,12 +9,17 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 
-
 //////////////////////////////////////////////////////////////////////////
 // ATracerCharacter
 
 ATracerCharacter::ATracerCharacter()
-	:DashActivated(false)
+	:DashActivated(false),
+	HasMove(false),
+	HasRotate(false),
+	CanMove(true),
+	Health(1.f),
+	Ammo(10),
+	RetrocessPointsNumber(240)
 {
 	// Character doesnt have a rifle at start
 	bHasRifle = false;
@@ -47,6 +52,8 @@ ATracerCharacter::ATracerCharacter()
 
 	CurrentDashTime = DashTime = 0.3f;
 
+	TimeTillRegisterData = TimeRegisterData = 0.5f;
+
 	CharacterMovement = GetCharacterMovement();
 }
 
@@ -62,6 +69,14 @@ void ATracerCharacter::BeginPlay()
 		{
 			Subsystem->AddMappingContext(DefaultMappingContext, 0);
 		}
+	}
+
+	for (int i = 0; i < RetrocessPointsNumber; i++)
+	{
+		RetrocessPoints[i].Movement = { 0.f, 0.f };
+		RetrocessPoints[i].Rotation = {0.f, 0.f};
+		RetrocessPoints[i].Health = Health;
+		RetrocessPoints[i].Ammo = Ammo;
 	}
 
 }
@@ -90,13 +105,23 @@ void ATracerCharacter::Tick(float DeltaTime)
 			CurrentDashTime -= DeltaTime;
 		else
 		{
-			UE_LOG(LogTemp, Warning, TEXT("Movement stop"));
 			DashActivated = false;
 			CharacterMovement->GravityScale = 1.0f;
 			CharacterMovement->StopActiveMovement();
 			LaunchCharacter({ 0.f, 0.f, -100.f }, true, true);
 		}
 	}
+
+	if(CanMove)
+		UpdateRetrocessData();
+	else
+	{
+		Retrocess();
+		RetrocessIterator--;
+		if (RetrocessIterator < 0)
+			CanMove = true;
+	}
+
 }
 
 //////////////////////////////////////////////////////////////////////////// Input
@@ -111,7 +136,10 @@ void ATracerCharacter::SetupPlayerInputComponent(class UInputComponent* PlayerIn
 		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &ACharacter::StopJumping);
 		
 		//FirstAbilitie
-		EnhancedInputComponent->BindAction(FirstAbilitieAction, ETriggerEvent::Triggered, this, &ATracerCharacter::FirstAbilitie);
+		EnhancedInputComponent->BindAction(FirstAbilityAction, ETriggerEvent::Triggered, this, &ATracerCharacter::FirstAbility);
+
+		//SecondAbilitie
+		EnhancedInputComponent->BindAction(SecondAbilityAction, ETriggerEvent::Triggered, this, &ATracerCharacter::SecondAbility);
 
 		//Moving
 		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &ATracerCharacter::Move);
@@ -124,27 +152,50 @@ void ATracerCharacter::SetupPlayerInputComponent(class UInputComponent* PlayerIn
 
 void ATracerCharacter::Move(const FInputActionValue& Value)
 {
-	// input is a Vector2D
-	FVector2D MovementVector = Value.Get<FVector2D>();
-
-	if (Controller != nullptr)
+	if (CanMove)
 	{
-		// add movement 
-		AddMovementInput(GetActorForwardVector(), MovementVector.Y);
-		AddMovementInput(GetActorRightVector(), MovementVector.X);
+		// input is a Vector2D
+		FVector2D MovementVector = Value.Get<FVector2D>();
+
+		if (Controller != nullptr)
+		{
+			// add movement 
+			AddMovementInput(GetActorForwardVector(), MovementVector.Y);
+			AddMovementInput(GetActorRightVector(), MovementVector.X);
+			AuxMovement = MovementVector;
+			HasMove = true;
+		}
+	}
+}
+
+
+void ATracerCharacter::Retrocess()
+{
+	if (Controller)
+	{
+		AddMovementInput(GetActorForwardVector(), RetrocessPoints[RetrocessIterator].Movement.Y * -1);
+		AddMovementInput(GetActorRightVector(), RetrocessPoints[RetrocessIterator].Movement.X * -1);
+
+		AddControllerYawInput(RetrocessPoints[RetrocessIterator].Rotation.X * -1);
+		AddControllerPitchInput(RetrocessPoints[RetrocessIterator].Rotation.Y * -1);
 	}
 }
 
 void ATracerCharacter::Look(const FInputActionValue& Value)
 {
-	// input is a Vector2D
-	FVector2D LookAxisVector = Value.Get<FVector2D>();
-
-	if (Controller != nullptr)
+	if (CanMove)
 	{
-		// add yaw and pitch input to controller
-		AddControllerYawInput(LookAxisVector.X);
-		AddControllerPitchInput(LookAxisVector.Y);
+		// input is a Vector2D
+		FVector2D LookAxisVector = Value.Get<FVector2D>();
+
+		if (Controller != nullptr)
+		{
+			// add yaw and pitch input to controller
+			AddControllerYawInput(LookAxisVector.X);
+			AddControllerPitchInput(LookAxisVector.Y);
+			AuxRotation = LookAxisVector;
+			HasRotate = true;
+		}
 	}
 }
 
@@ -158,7 +209,7 @@ bool ATracerCharacter::GetHasRifle()
 	return bHasRifle;
 }
 
-void ATracerCharacter::FirstAbilitie()
+void ATracerCharacter::FirstAbility()
 {
 	if (CooldownRemainingFirstAbilitie <= 0 && ImpulsesRemaining >= 1)
 	{
@@ -166,9 +217,41 @@ void ATracerCharacter::FirstAbilitie()
 		ImpulsesRemaining--;
 		ImpulseReloadTimeRemaining = ImpulseReloadTime;
 		CooldownRemainingFirstAbilitie = CooldownFirstAbilitie;
-		GetCharacterMovement()->GravityScale = 0.f;
+		CharacterMovement->GravityScale = 0.f;
 		LaunchCharacter(LaunchVector * FirstPersonCameraComponent->GetForwardVector(), true, true);
 		CurrentDashTime = DashTime;
 		DashActivated = true;
 	}
+}
+
+void ATracerCharacter::SecondAbility()
+{
+	CanMove = false;
+	RetrocessIterator = RetrocessPointsNumber - 1;
+}
+
+void ATracerCharacter::UpdateRetrocessData()
+{
+	for (int i = 0; i < RetrocessPointsNumber - 1; i++)
+	{
+		RetrocessPoints[i].Movement = RetrocessPoints[i + 1].Movement;
+		RetrocessPoints[i].Rotation = RetrocessPoints[i + 1].Rotation;
+		RetrocessPoints[i].Health = RetrocessPoints[i + 1].Health;
+		RetrocessPoints[i].Ammo = RetrocessPoints[i + 1].Ammo;
+	}
+
+	if (!HasMove)
+		AuxMovement = { 0.f, 0.f };
+	else
+		HasMove = false;
+
+	if (!HasRotate)
+		AuxRotation = { 0.f, 0.f };
+	else
+		HasRotate = false;
+
+	RetrocessPoints[RetrocessPointsNumber - 1].Movement = AuxMovement;
+	RetrocessPoints[RetrocessPointsNumber - 1].Rotation = AuxRotation;
+	RetrocessPoints[RetrocessPointsNumber - 1].Health = Health;
+	RetrocessPoints[RetrocessPointsNumber - 1].Ammo = Ammo;
 }
