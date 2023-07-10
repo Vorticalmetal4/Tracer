@@ -17,6 +17,7 @@ ATracerCharacter::ATracerCharacter()
 	HasMove(false),
 	HasRotate(false),
 	CanMove(true),
+	bIsRegressing(false),
 	Health(1.f),
 	Ammo(10),
 	RetrocessPointsNumber(240)
@@ -88,7 +89,7 @@ void ATracerCharacter::Tick(float DeltaTime)
 	if (CooldownRemainingFirstAbilitie > 0)
 		CooldownRemainingFirstAbilitie -= DeltaTime;
 
-	if (ImpulseReloadTimeRemaining > 0 && ImpulsesRemaining < MaxImpulses)
+	if (ImpulseReloadTimeRemaining > 0 && ImpulsesRemaining < MaxImpulses) //Recharging the first ability
 	{
 		ImpulseReloadTimeRemaining -= DeltaTime;
 		if (ImpulseReloadTimeRemaining <= 0)
@@ -101,9 +102,14 @@ void ATracerCharacter::Tick(float DeltaTime)
 	
 	if (DashActivated)
 	{
-		if (CurrentDashTime > 0)
+		if (CurrentDashTime > 0) //Still dashing
+		{
+			AuxMovement.X = FirstPersonCameraComponent->GetForwardVector().X * 5;
+			AuxMovement.Y = FirstPersonCameraComponent->GetForwardVector().Y * 5;
+			HasMove = true;
 			CurrentDashTime -= DeltaTime;
-		else
+		}
+		else //Dash has ended
 		{
 			DashActivated = false;
 			CharacterMovement->GravityScale = 1.0f;
@@ -112,14 +118,18 @@ void ATracerCharacter::Tick(float DeltaTime)
 		}
 	}
 
-	if(CanMove)
+	if(CanMove) 
 		UpdateRetrocessData();
-	else
+	else if(bIsRegressing) //Second ability is activated
 	{
 		Retrocess();
 		RetrocessIterator--;
 		if (RetrocessIterator < 0)
+		{
 			CanMove = true;
+			bIsRegressing = false;
+			Regressing(false);
+		}
 	}
 
 }
@@ -136,10 +146,10 @@ void ATracerCharacter::SetupPlayerInputComponent(class UInputComponent* PlayerIn
 		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &ACharacter::StopJumping);
 		
 		//FirstAbilitie
-		EnhancedInputComponent->BindAction(FirstAbilityAction, ETriggerEvent::Triggered, this, &ATracerCharacter::FirstAbility);
+		EnhancedInputComponent->BindAction(FirstAbilityAction, ETriggerEvent::Started, this, &ATracerCharacter::FirstAbility);
 
 		//SecondAbilitie
-		EnhancedInputComponent->BindAction(SecondAbilityAction, ETriggerEvent::Triggered, this, &ATracerCharacter::SecondAbility);
+		EnhancedInputComponent->BindAction(SecondAbilityAction, ETriggerEvent::Started, this, &ATracerCharacter::SecondAbility);
 
 		//Moving
 		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &ATracerCharacter::Move);
@@ -171,8 +181,9 @@ void ATracerCharacter::Move(const FInputActionValue& Value)
 
 void ATracerCharacter::Retrocess()
 {
-	if (Controller)
+	if (Controller) 
 	{
+		//Add the inverse inputs based to retrocess the movement
 		AddMovementInput(GetActorForwardVector(), RetrocessPoints[RetrocessIterator].Movement.Y * -1);
 		AddMovementInput(GetActorRightVector(), RetrocessPoints[RetrocessIterator].Movement.X * -1);
 
@@ -209,7 +220,7 @@ bool ATracerCharacter::GetHasRifle()
 	return bHasRifle;
 }
 
-void ATracerCharacter::FirstAbility()
+void ATracerCharacter::FirstAbility() //Dash
 {
 	if (CooldownRemainingFirstAbilitie <= 0 && ImpulsesRemaining >= 1)
 	{
@@ -224,13 +235,15 @@ void ATracerCharacter::FirstAbility()
 	}
 }
 
-void ATracerCharacter::SecondAbility()
+void ATracerCharacter::SecondAbility() //Retrocess
 {
 	CanMove = false;
 	RetrocessIterator = RetrocessPointsNumber - 1;
+	bIsRegressing = true;
+	Regressing(true);
 }
 
-void ATracerCharacter::UpdateRetrocessData()
+void ATracerCharacter::UpdateRetrocessData() //Save the changes in the states
 {
 	for (int i = 0; i < RetrocessPointsNumber - 1; i++)
 	{

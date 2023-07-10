@@ -111,6 +111,10 @@ protected:
 
 	UFUNCTION(BlueprintImplementableEvent)
 	void DiscountDash();
+
+	UFUNCTION(BlueprintImplementableEvent)
+	void Regressing(bool isRegressing);
+
 private:
 
 	float ImpulseReloadTime;
@@ -127,6 +131,7 @@ private:
 	bool HasMove;
 	bool HasRotate;
 	bool CanMove;
+	bool bIsRegressing;
 
 	int16 ImpulsesRemaining;
 	int16 MaxImpulses;
